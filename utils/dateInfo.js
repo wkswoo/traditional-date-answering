@@ -451,8 +451,10 @@ function getDateInfo(dateString) {
 
 /**
  * 根据日期信息生成传统文化风格判词
- * 输出长度：90-160字
- * 风格：判词感、断语感、古风短评感
+ * 输出长度：180-280字
+ * 结构：起句 → 展开 → 万物 → 映照 → 收束
+ * 风格：万物生机版，润物细无声
+ * 核心原则：由日级维度组合生成，而非时令决定
  */
 function generateText(dateInfo) {
   const {
@@ -463,250 +465,506 @@ function generateText(dateInfo) {
     moonPhase, seasonPhase, dayOfYear
   } = dateInfo
 
-  // 优先级1: 节日当天
+  // 计算四个日级维度
+  const solarTermPosition = getSolarTermPosition(dateInfo)
+  const moonPhasePosition = getMoonPhasePosition(dateInfo)
+  const lunarDayPosition = getLunarDayPosition(dateInfo)
+  const dailyNature = getDailyNature(dateInfo)
+
+  // 节日当天特殊处理（保留原有逻辑，因为节日本身就是日级特征）
   if (festival) {
-    return generateFestivalText(dateInfo)
+    return generateFestivalText(dateInfo, solarTermPosition, moonPhasePosition, lunarDayPosition, dailyNature)
   }
 
-  // 优先级2: 节气当天
-  if (solarTerm && daysFromSolarTerm === 0) {
-    return generateSolarTermText(dateInfo)
-  }
-
-  // 优先级3: 节气前后3天
-  if (solarTerm && daysFromSolarTerm > 0 && daysFromSolarTerm <= 3) {
-    return generateNearSolarTermText(dateInfo)
-  }
-
-  // 优先级4: 农历特殊日
-  if (lunarDay === 1 || lunarDay === 15 || lunarDay >= 28) {
-    return generateSpecialLunarDayText(dateInfo)
-  }
-
-  // 优先级5: 根据干支、月相、农历日生成
-  return generateDailyText(dateInfo)
+  // 动态组合生成判词
+  return composeText(dateInfo, solarTermPosition, moonPhasePosition, lunarDayPosition, dailyNature)
 }
 
 /**
- * 生成节日判词
+ * 获取节气位置描述
  */
-function generateFestivalText(dateInfo) {
-  const { festival, ganzhiYear, ganzhiDay, moonPhase, seasonPhase } = dateInfo
+function getSolarTermPosition(dateInfo) {
+  const { solarTerm, daysFromSolarTerm, nextSolarTerm, daysToNextSolarTerm } = dateInfo
 
-  const festivalTexts = {
-    '春节': `${ganzhiYear}岁首，万象更始。${ganzhiDay}值日，天地交泰，${moonPhase}悬空，阴阳和合。爆竹声中辞旧岁，春风送暖入屠苏。此日阳气初生，万物萌动，宜静心体悟岁月流转，感念天地生生不息之德。`,
-    '元宵': `${ganzhiYear}年上元之夜，${ganzhiDay}当值。${moonPhase}当空，灯火万家。火树银花合，星桥铁锁开。月圆人团圆，此夜赏灯品茗，承千年雅俗，寄美好祝愿。月华如水，映照人间团圆之意。`,
-    '清明': `${ganzhiYear}年清明，${ganzhiDay}值日。气清景明，草木萌发。${moonPhase}悬于天际，天地一片清朗。此乃慎终追远之期，祭祖扫墓，缅怀先人。春和景明，万物生发，宜踏青郊野，感悟生命轮回。`,
-    '端午': `${ganzhiYear}年端午，${ganzhiDay}值日。${moonPhase}当空，仲夏阳气正盛。龙舟竞渡，粽叶飘香，承屈原忠贞之志。五月五日午，艾草悬门，驱邪避秽。此日宜登高望远，品味传统文化之深厚。`,
-    '中秋': `${ganzhiYear}年中秋，${ganzhiDay}值日。${moonPhase}当空，桂花飘香。明月几时有，把酒问青天。月圆人团圆，此夜赏月品茗，寄托思乡之情。月华如练，映照古今，承载华夏民族对团圆之向往。`,
-    '重阳': `${ganzhiYear}年重阳，${ganzhiDay}值日。${moonPhase}悬空，秋高气爽。登高望远，插茱萸，饮菊酒。独在异乡为异客，每逢佳节倍思亲。此日宜敬老尊贤，感念亲恩，登高而望，天地辽阔。`,
-    '冬至': `${ganzhiYear}年冬至，${ganzhiDay}值日。阴极之至，阳气始生。${moonPhase}悬于天际，日影最长。古人云冬至大如年，此日宜静养身心，顺应阴阳消长。寒极而暖生，冬尽而春至，天地循环不息。`,
-    '七夕': `${ganzhiYear}年七夕，${ganzhiDay}值日。${moonPhase}之夜，银汉迢迢。纤云弄巧，飞星传恨，牛郎织女鹊桥相会。此夜仰望星空，感念忠贞爱情，愿有情人终成眷属，岁月静好。`,
-    '除夕': `${ganzhiYear}年除夕，${ganzhiDay}值日。爆竹声中一岁除，春风送暖入屠苏。${moonPhase}悬空，万家灯火通明。辞旧迎新，守岁纳福，此夜宜静心回顾，感恩岁月馈赠，期盼来年顺遂。`,
-    '元旦': `${ganzhiYear}年元旦，${ganzhiDay}值日。岁首之始，万象更新。${moonPhase}当空，天地同春。此日宜展望未来，开启新年征程。愿新的一年，风调雨顺，国泰民安。`,
-    '国庆': `${ganzhiYear}年国庆，${ganzhiDay}值日。金秋十月，举国同庆。${moonPhase}悬空，山河壮丽。此日宜感念家国情怀，珍惜和平岁月，为祖国繁荣昌盛贡献力量。`
+  if (!solarTerm) {
+    return {
+      type: 'none',
+      desc: '',
+      detail: ''
+    }
   }
 
-  return festivalTexts[festival] || `${festival}之日，${ganzhiYear}年，${ganzhiDay}值日。${moonPhase}悬空，${seasonPhase}时节。此日宜静心体悟，感念天地之德。`
-}
-
-/**
- * 生成节气判词
- */
-function generateSolarTermText(dateInfo) {
-  const { solarTerm, ganzhiYear, ganzhiDay, moonPhase, seasonPhase } = dateInfo
-
-  const solarTermTexts = {
-    '立春': `${ganzhiYear}年立春，${ganzhiDay}值日。东风解冻，蛰虫始振，万物复苏。${moonPhase}悬空，春为岁首，四时之始。天地间生机盎然，阳气升腾，草木萌动。此日宜舒展身心，感受春之气息，体悟天地生生不息之德。`,
-    '雨水': `${ganzhiYear}年雨水，${ganzhiDay}值日。天气回暖，冰雪消融。${moonPhase}当空，好雨知时节，当春乃发生。草木萌动，鸿雁北归。春雨润物无声，滋养大地，万物得此甘霖，皆显蓬勃之态。`,
-    '惊蛰': `${ganzhiYear}年惊蛰，${ganzhiDay}值日。${moonPhase}悬空，春雷乍动，惊醒蛰伏之虫。桃始华，仓庚鸣，鹰化为鸠。万物生机勃发，阳气升腾，宜舒展筋骨，感受天地间蓬勃生命之力。`,
-    '春分': `${ganzhiYear}年春分，${ganzhiDay}值日。昼夜等长，阴阳相半。${moonPhase}当空，燕飞南北，雷发声，始电。春和景明，万物生长，宜踏青赏花，感受天地和谐之美，体悟自然平衡之道。`,
-    '清明': `${ganzhiYear}年清明，${ganzhiDay}值日。气清景明，万物皆显。${moonPhase}悬空，桐始华，虹始见。风和日丽，草木繁茂，天地间一片清朗。宜亲近自然，感受春之盛景，珍惜光阴。`,
-    '谷雨': `${ganzhiYear}年谷雨，${ganzhiDay}值日。雨生百谷，万物逢时。${moonPhase}当空，萍始生，鸣鸠拂其羽。雨水丰沛，百谷茁壮。此乃春季最后一个节气，宜顺应农时，期待秋之收获。`,
-    '立夏': `${ganzhiYear}年立夏，${ganzhiDay}值日。${moonPhase}悬空，斗指东南，维为立夏。蝼蝈鸣，蚯蚓出，王瓜生。夏之始也，万物繁茂，天地始交。宜养心安神，顺应夏日阳气旺盛之特点。`,
-    '小满': `${ganzhiYear}年小满，${ganzhiDay}值日。${moonPhase}当空，小满小满，麦粒渐满。苦菜秀，靡草死，麦秋至。夏熟作物籽粒渐饱满，然尚未成熟。小满者，满而不损，满而不盈，蕴含中庸之道。`,
-    '芒种': `${ganzhiYear}年芒种，${ganzhiDay}值日。${moonPhase}悬空，螳螂生，鵙始鸣。麦黄稻绿，农事繁忙。芒种寓意有芒之谷可播种，宜勤勉耕耘，把握农时，不负天时地利。`,
-    '夏至': `${ganzhiYear}年夏至，${ganzhiDay}值日。${moonPhase}当空，夏至一阴生，日长之至。鹿角解，蝉始鸣，半夏生。白昼最长，阳气极盛，阴气始萌。宜静心宁神，顺应阴阳消长，调和身心以度盛夏。`,
-    '小暑': `${ganzhiYear}年小暑，${ganzhiDay}值日。${moonPhase}悬空，温风至，蟋蟀居壁。暑气渐盛，天地如蒸笼。宜清心寡欲，避暑纳凉，饮食清淡，保养精气，以安然度过炎夏。`,
-    '大暑': `${ganzhiYear}年大暑，${ganzhiDay}值日。${moonPhase}当空，腐草为萤，土润溽暑。一年中最热之时，阳气极盛。宜静心养性，避免暑气侵扰，待暑退凉生，自有清风徐来。`,
-    '立秋': `${ganzhiYear}年立秋，${ganzhiDay}值日。${moonPhase}悬空，凉风至，白露降，寒蝉鸣。秋之始也，阳气渐收，阴气渐长。宜收敛神气，使志安宁，顺应秋收之气，为冬藏做准备。`,
-    '处暑': `${ganzhiYear}年处暑，${ganzhiDay}值日。${moonPhase}当空，鹰乃祭鸟，天地始肃。暑气渐消，秋意渐浓。宜早睡早起，与鸡俱兴，调养肺气，感受秋之清爽。`,
-    '白露': `${ganzhiYear}年白露，${ganzhiDay}值日。${moonPhase}悬空，鸿雁来，玄鸟归。露凝而白，秋意渐浓。阴阳之气开始转换，宜保暖养阴，感受秋之静美，珍惜天高云淡之时。`,
-    '秋分': `${ganzhiYear}年秋分，${ganzhiDay}值日。${moonPhase}当空，雷始收声，蛰虫坯户。阴阳相半，秋色平分。宜调养身心，保持平和心境，感受秋之中正之美，体悟自然平衡之道。`,
-    '寒露': `${ganzhiYear}年寒露，${ganzhiDay}值日。${moonPhase}悬空，鸿雁来宾，菊有黄华。露气寒冷，将凝结成霜。宜添衣保暖，养阴防燥，感受秋之深沉，品味岁月静好。`,
-    '霜降': `${ganzhiYear}年霜降，${ganzhiDay}值日。${moonPhase}当空，豺乃祭兽，草木黄落。秋之末也，霜华满地，天地萧瑟。宜防寒保暖，养精蓄锐，静待冬之来临。`,
-    '立冬': `${ganzhiYear}年立冬，${ganzhiDay}值日。${moonPhase}悬空，水始冰，地始冻。冬之始也，万物收藏。宜温补养阳，早睡晚起，顺应冬藏之理，为来年积蓄能量。`,
-    '小雪': `${ganzhiYear}年小雪，${ganzhiDay}值日。${moonPhase}当空，虹藏不见，天气上升地气下降。雪意渐浓，天地清寒。宜温养身心，感受冬之静谧，品味岁月沉淀。`,
-    '大雪': `${ganzhiYear}年大雪，${ganzhiDay}值日。${moonPhase}悬空，鹖鴠不鸣，虎始交。雪盛也，天寒地冻。宜保暖养藏，感受冬之壮美，静待瑞雪兆丰年。`,
-    '冬至': `${ganzhiYear}年冬至，${ganzhiDay}值日。${moonPhase}当空，蚯蚓结，麋角解，水泉动。阴极之至，阳气始生，日影最长。古人云冬至大如年，此日宜静养身心，顺应阴阳消长，期待春回大地。`,
-    '小寒': `${ganzhiYear}年小寒，${ganzhiDay}值日。${moonPhase}悬空，雁北乡，鹊始巢。寒气渐盛，然阳气已动。宜温补养肾，防寒保暖，感受冬之严寒中蕴含的生机。`,
-    '大寒': `${ganzhiYear}年大寒，${ganzhiDay}值日。${moonPhase}当空，鸡乳，征鸟厉疾。一年中最冷之时，然春意已近。宜静心养性，感受冬尽春来之际，天地循环不息。`
+  if (daysFromSolarTerm === 0) {
+    return {
+      type: 'term_day',
+      desc: `${solarTerm}正位`,
+      detail: `节气正位，气机转折`
+    }
   }
 
-  return solarTermTexts[solarTerm] || `${solarTerm}之日，${ganzhiYear}年，${ganzhiDay}值日。${moonPhase}悬空，${seasonPhase}时节。天地之气流转，宜静心体悟自然之德。`
+  if (daysFromSolarTerm === 1) {
+    return {
+      type: 'term_after_1',
+      desc: `${solarTerm}初过`,
+      detail: `节气刚过，余韵犹在`
+    }
+  }
+
+  if (daysFromSolarTerm === 2) {
+    return {
+      type: 'term_after_2',
+      desc: `${solarTerm}已过二日`,
+      detail: `节气渐远，气机渐稳`
+    }
+  }
+
+  if (daysFromSolarTerm === 3) {
+    return {
+      type: 'term_after_3',
+      desc: `${solarTerm}已过三日`,
+      detail: `节气远逝，新气初生`
+    }
+  }
+
+  if (daysToNextSolarTerm === 1) {
+    return {
+      type: 'term_before_1',
+      desc: `${nextSolarTerm}将至`,
+      detail: `新节气将临，气机酝酿`
+    }
+  }
+
+  if (daysToNextSolarTerm === 2) {
+    return {
+      type: 'term_before_2',
+      desc: `${nextSolarTerm}近在咫尺`,
+      detail: `新节气渐近，气机微动`
+    }
+  }
+
+  if (daysToNextSolarTerm === 3) {
+    return {
+      type: 'term_before_3',
+      desc: `${nextSolarTerm}三日后至`,
+      detail: `新节气在望，气机渐起`
+    }
+  }
+
+  // 节气中段
+  const midPoint = Math.floor((15 - daysFromSolarTerm) / 2)
+  return {
+    type: 'term_mid',
+    desc: `${solarTerm}后${daysFromSolarTerm}日`,
+    detail: `节气中段，气机平稳流转`
+  }
 }
 
 /**
- * 生成节气前后判词
+ * 获取月相位置描述
  */
-function generateNearSolarTermText(dateInfo) {
-  const { solarTerm, daysFromSolarTerm, ganzhiDay, moonPhase, nextSolarTerm, daysToNextSolarTerm, seasonPhase } = dateInfo
+function getMoonPhasePosition(dateInfo) {
+  const { moonPhase, lunarDay } = dateInfo
 
-  const templates = [
-    `${solarTerm}初过，天地之气渐变。${ganzhiDay}值日，${moonPhase}悬空。阴阳消长，万物应时而动。${nextSolarTerm}将至，尚余${daysToNextSolarTerm}日。${seasonPhase}时节，宜静心体悟节气更替，感受天地间微妙变化。`,
-    `${solarTerm}已过二日，气机流转。${ganzhiDay}当值，${moonPhase}映照天际。${seasonPhase}渐深，${nextSolarTerm}在望，距之${daysToNextSolarTerm}日。阴阳之气消长，宜顺应节气变化，调摄身心以应时令。`,
-    `${solarTerm}已过三日，天时渐移。${ganzhiDay}值日，${moonPhase}悬空。${seasonPhase}时节，${nextSolarTerm}渐近，还有${daysToNextSolarTerm}日。万物应时而动，宜顺应节气更替，感受天地循环之妙。`
-  ]
+  const phaseMap = {
+    '新月': { type: 'new_moon', desc: '朔月', detail: '月始生，阳气初萌' },
+    '蛾眉月': { type: 'crescent', desc: '蛾眉初生', detail: '月光微露，生机渐显' },
+    '上弦月': { type: 'first_quarter', desc: '上弦月', detail: '月半明，阴阳相半' },
+    '盈凸月': { type: 'waxing_gibbous', desc: '月渐盈', detail: '月光渐满，阳气渐盛' },
+    '满月': { type: 'full_moon', desc: '望月', detail: '月圆满，阴阳调和' },
+    '亏凸月': { type: 'waning_gibbous', desc: '月渐亏', detail: '月光渐减，阴气渐生' },
+    '下弦月': { type: 'last_quarter', desc: '下弦月', detail: '月半明，阴阳相半' },
+    '残月': { type: 'waning_crescent', desc: '残月将尽', detail: '月光将隐，阴气渐盛' }
+  }
 
-  return templates[daysFromSolarTerm - 1] || templates[0]
+  return phaseMap[moonPhase] || { type: 'unknown', desc: '月', detail: '月相流转' }
 }
 
 /**
- * 生成农历特殊日判词
+ * 获取农历日序描述
  */
-function generateSpecialLunarDayText(dateInfo) {
-  const { lunarDay, ganzhiDay, ganzhiMonth, moonPhase, seasonPhase, lunarMonth } = dateInfo
+function getLunarDayPosition(dateInfo) {
+  const { lunarDay, lunarMonth, ganzhiMonth } = dateInfo
 
   if (lunarDay === 1) {
-    return `${ganzhiMonth}月朔日，${ganzhiDay}值日。${moonPhase}悬空，月相初生。${seasonPhase}时节，万物待发。朔日之时，阳气始萌，宜静心养气，开启新的一月。月华如钩，暗藏生机，顺应自然，积蓄力量。`
+    return {
+      type: 'month_start',
+      desc: `${ganzhiMonth}月朔`,
+      detail: '月始，阳气初生'
+    }
+  }
+
+  if (lunarDay === 2) {
+    return {
+      type: 'month_2',
+      desc: '朔后一日',
+      detail: '月始生，生机初显'
+    }
+  }
+
+  if (lunarDay === 3) {
+    return {
+      type: 'month_3',
+      desc: '朔后三日',
+      detail: '月渐明，阳气渐升'
+    }
+  }
+
+  if (lunarDay === 7) {
+    return {
+      type: 'month_7',
+      desc: '初七',
+      detail: '上弦将近，阴阳渐分'
+    }
+  }
+
+  if (lunarDay === 8) {
+    return {
+      type: 'month_8',
+      desc: '初八',
+      detail: '上弦刚过，阳气渐盛'
+    }
+  }
+
+  if (lunarDay === 14) {
+    return {
+      type: 'month_14',
+      desc: '十四',
+      detail: '望日前夕，月华将满'
+    }
   }
 
   if (lunarDay === 15) {
-    return `${ganzhiMonth}月望日，${ganzhiDay}值日。${moonPhase}当空，月华圆满。${seasonPhase}时节，阴阳平衡。望日之夜，月华如练，宜赏月品茗，感受天地和谐。月圆人安，静心体悟自然之美。`
+    return {
+      type: 'month_15',
+      desc: `${ganzhiMonth}月望`,
+      detail: '月中，阴阳平衡'
+    }
   }
 
-  if (lunarDay >= 28) {
-    const dayDesc = lunarDay === 28 ? '廿八' : lunarDay === 29 ? '廿九' : '三十'
-    return `${ganzhiMonth}月${dayDesc}，${ganzhiDay}值日。${moonPhase}悬空，月将晦。${seasonPhase}时节，月相渐隐。晦日之时，阴气渐盛，宜静心回顾一月得失，养精蓄锐，静待新月。`
+  if (lunarDay === 16) {
+    return {
+      type: 'month_16',
+      desc: '望后一日',
+      detail: '月渐亏，阴气始生'
+    }
   }
 
-  return generateDailyText(dateInfo)
+  if (lunarDay === 21) {
+    return {
+      type: 'month_21',
+      desc: '廿一',
+      detail: '下弦将近，阴气渐盛'
+    }
+  }
+
+  if (lunarDay === 22) {
+    return {
+      type: 'month_22',
+      desc: '廿二',
+      detail: '下弦刚过，阴气渐升'
+    }
+  }
+
+  if (lunarDay === 27) {
+    return {
+      type: 'month_27',
+      desc: '廿七',
+      detail: '月末将近，阳气将藏'
+    }
+  }
+
+  if (lunarDay === 28) {
+    return {
+      type: 'month_28',
+      desc: '廿八',
+      detail: '月末，阴气渐浓'
+    }
+  }
+
+  if (lunarDay === 29) {
+    return {
+      type: 'month_29',
+      desc: '廿九',
+      detail: '晦日前夕，月将隐'
+    }
+  }
+
+  if (lunarDay === 30) {
+    return {
+      type: 'month_end',
+      desc: `${ganzhiMonth}月晦`,
+      detail: '月终，阳气潜藏'
+    }
+  }
+
+  // 普通日
+  const dayGroup = Math.floor((lunarDay - 1) / 5)
+  const groupDesc = [
+    '月初上旬',
+    '月中上旬',
+    '月中',
+    '月中下旬',
+    '月末上旬',
+    '月末'
+  ]
+
+  return {
+    type: `month_mid_${dayGroup}`,
+    desc: `${ganzhiMonth}月${lunarDay}日`,
+    detail: groupDesc[dayGroup] || '月中流转'
+  }
 }
 
 /**
- * 生成日常判词
+ * 获取当天日性描述
  */
-function generateDailyText(dateInfo) {
-  const { ganzhiDay, ganzhiMonth, moonPhase, seasonPhase, lunarDay, lunarMonth } = dateInfo
+function getDailyNature(dateInfo) {
+  const { ganzhiDay, dayOfYear } = dateInfo
 
-  // 根据干支日生成不同描述
-  const dayGanZhiDesc = {
-    '甲子': '甲子值日，阳木阴水，万物萌发。',
-    '乙丑': '乙丑值日，阴木阴土，草木扎根。',
-    '丙寅': '丙寅值日，阳木阳火，生机勃发。',
-    '丁卯': '丁卯值日，阴火阴木，温和生长。',
-    '戊辰': '戊辰值日，阳土阳土，稳固根基。',
-    '己巳': '己巳值日，阴土阴火，温润滋养。',
-    '庚午': '庚午值日，阳金阳火，刚柔并济。',
-    '辛未': '辛未值日，阴金阴土，细腻温润。',
-    '壬申': '壬申值日，阳水阳金，流动清冽。',
-    '癸酉': '癸酉值日，阴水阴金，柔润光泽。',
-    '甲戌': '甲戌值日，阳木阳土，刚健稳固。',
-    '乙亥': '乙亥值日，阴木阴水，柔顺滋养。',
-    '丙子': '丙子值日，阳火阳水，光明温暖。',
-    '丁丑': '丁丑值日，阴火阴土，温和厚实。',
-    '戊寅': '戊寅值日，阳土阳木，稳固生长。',
-    '己卯': '己卯值日，阴土阴木，温润滋养。',
-    '庚辰': '庚辰值日，阳金阳土，刚健稳固。',
-    '辛巳': '辛巳值日，阴金阴火，细腻温润。',
-    '壬午': '壬午值日，阳水阳火，流动温暖。',
-    '癸未': '癸未值日，阴水阴土，柔润滋养。',
-    '甲申': '甲申值日，阳木阳金，刚健清冽。',
-    '乙酉': '乙酉值日，阴木阴金，柔顺光泽。',
-    '丙戌': '丙戌值日，阳火阳土，光明稳固。',
-    '丁亥': '丁亥值日，阴火阴水，温和滋养。',
-    '戊子': '戊子值日，阳土阳水，稳固流动。',
-    '己丑': '己丑值日，阴土阴土，温润厚实。',
-    '庚寅': '庚寅值日，阳金阳木，刚健生长。',
-    '辛卯': '辛卯值日，阴金阴木，细腻滋养。',
-    '壬辰': '壬辰值日，阳水阳土，流动稳固。',
-    '癸巳': '癸巳值日，阴水阴火，柔润温润。',
-    '甲午': '甲午值日，阳木阳火，生机温暖。',
-    '乙未': '乙未值日，阴木阴土，柔顺滋养。',
-    '丙申': '丙申值日，阳火阳金，光明清冽。',
-    '丁酉': '丁酉值日，阴火阴金，温和光泽。',
-    '戊戌': '戊戌值日，阳土阳土，稳固厚实。',
-    '己亥': '己亥值日，阴土阴水，温润滋养。',
-    '庚子': '庚子值日，阳金阳水，刚健流动。',
-    '辛丑': '辛丑值日，阴金阴土，细腻厚实。',
-    '壬寅': '壬寅值日，阳水阳木，流动生长。',
-    '癸卯': '癸卯值日，阴水阴木，柔润滋养。',
-    '甲辰': '甲辰值日，阳木阳土，刚健稳固。',
-    '乙巳': '乙巳值日，阴木阴火，柔顺温润。',
-    '丙午': '丙午值日，阳火阳火，光明炽热。',
-    '丁未': '丁未值日，阴火阴土，温和滋养。',
-    '戊申': '戊申值日，阳土阳金，稳固清冽。',
-    '己酉': '己酉值日，阴土阴金，温润光泽。',
-    '庚戌': '庚戌值日，阳金阳土，刚健稳固。',
-    '辛亥': '辛亥值日，阴金阴水，细腻滋养。',
-    '壬子': '壬子值日，阳水阳水，流动充沛。',
-    '癸丑': '癸丑值日，阴水阴土，柔润厚实。',
-    '甲寅': '甲寅值日，阳木阳木，生机勃发。',
-    '乙卯': '乙卯值日，阴木阴木，柔顺生长。',
-    '丙辰': '丙辰值日，阳火阳土，光明稳固。',
-    '丁巳': '丁巳值日，阴火阴火，温和温润。',
-    '戊午': '戊午值日，阳土阳火，稳固温暖。',
-    '己未': '己未值日，阴土阴土，温润滋养。',
-    '庚申': '庚申值日，阳金阳金，刚健清冽。',
-    '辛酉': '辛酉值日，阴金阴金，细腻光泽。',
-    '壬戌': '壬戌值日，阳水阳土，流动稳固。',
-    '癸亥': '癸亥值日，阴水阴水，柔润充沛。'
+  // 五行属性
+  const wuxingMap = {
+    '甲': '木', '乙': '木',
+    '丙': '火', '丁': '火',
+    '戊': '土', '己': '土',
+    '庚': '金', '辛': '金',
+    '壬': '水', '癸': '水'
   }
 
-  const dayDesc = dayGanZhiDesc[ganzhiDay] || `${ganzhiDay}值日，天地之气流转。`
+  const gan = ganzhiDay[0]
+  const zhi = ganzhiDay[1]
 
-  // 根据月相生成不同描述
-  const moonPhaseDescs = {
-    '新月': '新月如钩，暗藏生机。',
-    '蛾眉月': '蛾眉月现，生机渐显。',
-    '上弦月': '上弦月明，阴阳平衡。',
-    '盈凸月': '月将圆满，阳气渐盛。',
-    '满月': '满月当空，阴阳调和。',
-    '亏凸月': '月渐亏缺，阴气渐生。',
-    '下弦月': '下弦月明，阴阳平衡。',
-    '残月': '残月将晦，阴气渐盛。'
-  }
+  const ganWuxing = wuxingMap[gan] || '土'
+  const zhiWuxing = wuxingMap[zhi] || '土'
 
-  const moonDesc = moonPhaseDescs[moonPhase] || '月相流转，阴阳消长。'
+  // 阴阳属性
+  const yangGan = ['甲', '丙', '戊', '庚', '壬']
+  const yangZhi = ['子', '寅', '辰', '午', '申', '戌']
 
-  // 根据农历日生成不同描述
-  const lunarDayDescs = [
-    '朔后初生，阳气始萌。',
-    '新月渐满，生机渐显。',
-    '月相渐盈，万物生长。',
-    '上弦将至，阳气升腾。',
-    '月将盈满，阴阳调和。',
-    '月近盈满，生机旺盛。',
-    '月将圆满，阴阳平衡。',
-    '月近圆满，万物繁茂。',
-    '月将圆满，天地和谐。',
-    '月近圆满，生机盎然。',
-    '月将圆满，阴阳调和。',
-    '月近圆满，万物生长。',
-    '月将圆满，天地和谐。',
-    '月近圆满，生机旺盛。',
-    '月将圆满，阴阳平衡。',
-    '月近圆满，万物繁茂。',
-    '月将圆满，天地和谐。',
-    '月近圆满，生机盎然。',
-    '月将圆满，阴阳调和。',
-    '月近圆满，万物生长。',
-    '月将圆满，天地和谐。',
-    '月近圆满，生机旺盛。',
-    '月将圆满，阴阳平衡。',
-    '月近圆满，万物繁茂。',
-    '月将圆满，天地和谐。',
-    '月近圆满，生机盎然。',
-    '月将圆满，阴阳调和。',
-    '月近圆满，万物生长。',
-    '月将圆满，天地和谐。',
-    '月近圆满，生机旺盛。'
+  const ganYinYang = yangGan.includes(gan) ? '阳' : '阴'
+  const zhiYinYang = yangZhi.includes(zhi) ? '阳' : '阴'
+
+  // 根据五行和阴阳组合生成气质描述
+  const natureTypes = [
+    { conditions: ['木木', '木火'], type: '生发', desc: '生机盎然', detail: '木气旺盛，万物萌发' },
+    { conditions: ['火火', '火土'], type: '渐盛', desc: '阳气渐盛', detail: '火气升腾，光华外扬' },
+    { conditions: ['土土', '土木', '土金'], type: '盈满', desc: '万象丰茂', detail: '土气厚重，万物结实' },
+    { conditions: ['金金', '金水'], type: '将敛', desc: '肃敛沉静', detail: '金气清冽，万物收束' },
+    { conditions: ['水水', '水木'], type: '潜藏', desc: '潜藏孕育', detail: '水气充盈，万物蓄养' }
   ]
 
-  const lunarDesc = lunarDayDescs[lunarDay - 1] || '月相流转，阴阳消长。'
+  let nature = { type: 'neutral', desc: '气机平和', detail: '天地之气，平和流转' }
 
-  // 组合生成判词
-  return `${ganzhiMonth}月${lunarMonth}日，${ganzhiDay}值日。${moonPhase}悬空，${moonDesc}${dayDesc}${lunarDesc}${seasonPhase}时节，天地之气流转，宜静心体悟自然之德，感受四时变化之妙。`
+  const wuxingCombo = ganWuxing + zhiWuxing
+  for (const nt of natureTypes) {
+    if (nt.conditions.includes(wuxingCombo)) {
+      nature = nt
+      break
+    }
+  }
+
+  // 根据阴阳调整
+  if (ganYinYang === '阳' && zhiYinYang === '阳') {
+    nature.desc += '，阳气充足'
+  } else if (ganYinYang === '阴' && zhiYinYang === '阴') {
+    nature.desc += '，阴气内敛'
+  } else {
+    nature.desc += '，阴阳调和'
+  }
+
+  return nature
+}
+
+/**
+ * 动态组合生成判词
+ * 由四个日级维度共同决定，而非时令决定
+ */
+function composeText(dateInfo, solarTermPosition, moonPhasePosition, lunarDayPosition, dailyNature) {
+  const { seasonPhase, ganzhiYear, ganzhiDay } = dateInfo
+
+  // 万物描写库（根据日性动态选择，而非按时令固定）
+  const wanwuLibrary = {
+    '生发': [
+      '草木萌动，芽尖初露，虫声初起于草际',
+      '柳芽新绿，桃萼含苞，地气上腾',
+      '冰雪消融，溪水解冻，春芽破土',
+      '嫩芽初绽，蛰虫微动，露水轻凝',
+      '阳气初生，万物复苏，生机萌动'
+    ],
+    '渐盛': [
+      '枝叶舒展，绿意渐浓，光华外扬',
+      '蝉声初鸣，暑气潜长，万物繁茂',
+      '禾苗拔节，花开次第，生机盎然',
+      '阳光渐盛，雨露滋润，草木向荣',
+      '阳气渐升，万物茁壮，气势渐增'
+    ],
+    '盈满': [
+      '万象丰茂，花果初成，气势充沛',
+      '蝉鸣阵阵，荷香远溢，暑气正盛',
+      '果实饱满，草木葱茏，生机鼎盛',
+      '月华圆满，星光璀璨，万物丰盈',
+      '阳气极盛，万物成熟，物性外达'
+    ],
+    '将敛': [
+      '声息渐收，光色转沉，果实归实',
+      '蝉声渐稀，秋叶初黄，金风送爽',
+      '稻穗低垂，硕果累累，万物收束',
+      '露水渐重，夜气微凉，草木开始凋零',
+      '阴气渐生，阳气渐收，万物敛藏'
+    ],
+    '潜藏': [
+      '露重夜长，地气回伏，群生敛迹',
+      '虫声俱寂，草木休眠，天地清寒',
+      '白雪皑皑，万物潜藏，静待春来',
+      '阳气潜藏，阴气弥漫，天地沉静',
+      '万物蛰伏，生机内藏，蓄势待发'
+    ],
+    'neutral': [
+      '万物平和，气机流转，有条不紊',
+      '阴阳调和，草木安然，虫声悠然',
+      '天地沉静，万物有序，时节如常'
+    ]
+  }
+
+  // 映照暗示库（根据日性动态选择）
+  const yingzhaoLibrary = {
+    '生发': [
+      '当蓄而不泄，守而不发',
+      '如草木之待雨，如虫鸟之候暖',
+      '宜静守，待时机，不急不躁'
+    ],
+    '渐盛': [
+      '当发而不躁，行而不急',
+      '如草木之舒展，如虫鸟之欢鸣',
+      '宜顺势而行，稳步推进'
+    ],
+    '盈满': [
+      '当察而不急，待而不躁',
+      '如花果之待熟，如日月之待明',
+      '宜静观，知进退，不贪不躁'
+    ],
+    '将敛': [
+      '当守而不发，蓄而不泄',
+      '如草木之待霜，如虫鸟之备冬',
+      '宜收敛，蓄元气，养精蓄锐'
+    ],
+    '潜藏': [
+      '当藏而不露，蓄而不发',
+      '如草木之待春，如虫鸟之待暖',
+      '宜静养，蓄生机，静待天时'
+    ],
+    'neutral': [
+      '当察而不急，待而不躁',
+      '如天地之自然，如时节之流转',
+      '宜平和，守中道，顺其自然'
+    ]
+  }
+
+  // 收束语句库
+  const shoushuLibrary = [
+    '天地之气，流转不息，万物之动，皆有其时',
+    '今日之气机，自有其序，顺之则和，逆之则失',
+    '时节推移，气机流转，顺其自然，便是顺应生命',
+    '天地有常，万物有序，今日之气，亦是自然之理'
+  ]
+
+  // 随机选择
+  const randomPick = (arr) => arr[Math.floor(Math.random() * arr.length)]
+
+  // 起句：节气位置 + 月相位置 + 日性，不按时令开头
+  let qiju = ''
+  if (solarTermPosition.type !== 'none') {
+    qiju = `${solarTermPosition.desc}，${moonPhasePosition.desc}，${dailyNature.desc}`
+  } else {
+    qiju = `${lunarDayPosition.desc}，${moonPhasePosition.desc}，${dailyNature.desc}`
+  }
+
+  // 展开：详细描述各维度的内在节律
+  let zhankai = ''
+  const detailParts = []
+  if (solarTermPosition.detail) detailParts.push(solarTermPosition.detail)
+  if (moonPhasePosition.detail) detailParts.push(moonPhasePosition.detail)
+  if (lunarDayPosition.detail) detailParts.push(lunarDayPosition.detail)
+  if (dailyNature.detail) detailParts.push(dailyNature.detail)
+
+  if (detailParts.length > 0) {
+    zhankai = `${detailParts.join('，')}。此乃天地气机流转之至，亦是时节流转之必然。`
+  } else {
+    zhankai = '气机流转，时节推移，自有其序。'
+  }
+
+  // 万物：根据日性动态选择
+  const wanwu = randomPick(wanwuLibrary[dailyNature.type] || wanwuLibrary['neutral'])
+
+  // 映照：根据日性动态选择
+  const yingzhao = randomPick(yingzhaoLibrary[dailyNature.type] || yingzhaoLibrary['neutral'])
+
+  // 收束：随机选择
+  const shoushu = randomPick(shoushuLibrary)
+
+  // 组合成完整判词（seasonPhase只作为背景提及）
+  const fullText = `${qiju}。${zhankai}此时天地之间，${wanwu}，万物之动，皆顺此气机而发。观万物之动，可见今日之气机：${yingzhao}。${shoushu}。`
+
+  // 如果有seasonPhase，在适当位置插入作为背景
+  if (seasonPhase) {
+    const seasonInsertIndex = fullText.indexOf('万物之动')
+    if (seasonInsertIndex > 0) {
+      return fullText.slice(0, seasonInsertIndex) + `，${seasonPhase}之时` + fullText.slice(seasonInsertIndex)
+    }
+  }
+
+  return fullText
+}
+
+/**
+ * 生成节日判词（动态组合版）
+ */
+function generateFestivalText(dateInfo, solarTermPosition, moonPhasePosition, lunarDayPosition, dailyNature) {
+  const { festival, ganzhiYear } = dateInfo
+
+  const festivalInfo = {
+    '春节': { desc: '岁首', detail: '万象更始，阳气初生' },
+    '元宵': { desc: '上元', detail: '灯火万家，月圆之夜' },
+    '清明': { desc: '清明', detail: '气清景明，草木繁茂' },
+    '端午': { desc: '端午', detail: '仲夏正盛，阳气极盛' },
+    '中秋': { desc: '中秋', detail: '月圆满，人团圆' },
+    '重阳': { desc: '重阳', detail: '秋高气爽，金气厚重' },
+    '冬至': { desc: '冬至', detail: '阴极阳生，天地循环' },
+    '七夕': { desc: '七夕', detail: '银河鹊桥，双星相会' },
+    '除夕': { desc: '除夕', detail: '辞旧迎新，万象待发' },
+    '元旦': { desc: '元旦', detail: '岁首之始，万象更新' },
+    '国庆': { desc: '国庆', detail: '金秋时节，山河壮丽' }
+  }
+
+  const info = festivalInfo[festival] || { desc: festival, detail: '佳节之时' }
+
+  // 使用composeText框架，但加入节日特征
+  const qiju = `${ganzhiYear}${info.desc}，${moonPhasePosition.desc}，${dailyNature.desc}`
+  const zhankai = `${info.detail}，${moonPhasePosition.detail}，${dailyNature.detail}。此乃天地气机流转之至，亦是时节流转之必然。`
+
+  const wanwuLibrary = {
+    '生发': ['草木萌动，虫声初起，喜气洋洋'],
+    '渐盛': ['枝叶舒展，暑气潜长，热闹非凡'],
+    '盈满': ['万象丰茂，花果初成，团圆美满'],
+    '将敛': ['声息渐收，果实归实，祥和安宁'],
+    '潜藏': ['露重夜长，万物潜藏，静待春来'],
+    'neutral': ['万物平和，喜气洋洋，佳节氛围']
+  }
+
+  const yingzhaoLibrary = {
+    '生发': ['当蓄而不泄，守而不发，静待新春'],
+    '渐盛': ['当发而不躁，行而不急，乐享佳节'],
+    '盈满': ['当察而不急，待而不躁，珍惜团圆'],
+    '将敛': ['当守而不发，蓄而不泄，感恩收获'],
+    '潜藏': ['当藏而不露，蓄而不发，静待春来'],
+    'neutral': ['当察而不急，待而不躁，享受当下']
+  }
+
+  const shoushu = '天地之气，流转不息，佳节之时，亦是自然之理。'
+
+  const wanwu = wanwuLibrary[dailyNature.type]?.[0] || '万物祥和，佳节氛围浓厚'
+  const yingzhao = yingzhaoLibrary[dailyNature.type]?.[0] || '享受当下，珍惜此刻'
+
+  return `${qiju}。${zhankai}此时天地之间，${wanwu}，万物之动，皆顺此气机而发。观万物之动，可见今日之气机：${yingzhao}。${shoushu}`
 }
 
 module.exports = {
