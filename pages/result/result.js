@@ -21,11 +21,14 @@ Page({
     // 生成文案
     const content = generateText(dateInfo)
 
+    // 只在节气当天显示节气
+    const showSolarTerm = dateInfo.daysFromSolarTerm === 0 ? dateInfo.solarTerm : ''
+
     // 更新页面数据
     this.setData({
       solarDate: dateInfo.solarDate,
       lunarDate: dateInfo.lunarDate,
-      solarTerm: dateInfo.solarTerm,
+      solarTerm: showSolarTerm,
       festival: dateInfo.festival,
       seasonPhase: dateInfo.seasonPhase,
       content: content
