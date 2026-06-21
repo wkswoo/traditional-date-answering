@@ -1,12 +1,13 @@
 {
   "pages": [
     "pages/index/index",
+    "pages/result/result",
     "pages/logs/logs"
   ],
   "window": {
     "navigationBarTextStyle": "black",
-    "navigationBarTitleText": "Weixin",
-    "navigationBarBackgroundColor": "#ffffff"
+    "navigationBarTitleText": "传统文化日期解读",
+    "navigationBarBackgroundColor": "#f5f0e8"
   },
   "style": "v2",
   "componentFramework": "glass-easel",
