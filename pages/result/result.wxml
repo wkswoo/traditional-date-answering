@@ -10,7 +10,17 @@
     <text class="value">{{lunarDate}}</text>
   </view>
 
+  <view class="date-info" wx:if="{{solarTerm}}">
+    <text class="label">节气</text>
+    <text class="value">{{solarTerm}}</text>
+  </view>
+
+  <view class="date-info" wx:if="{{festival}}">
+    <text class="label">节日</text>
+    <text class="value">{{festival}}</text>
+  </view>
+
   <view class="section">
-    <text class="section-content">今天是个好日子</text>
+    <text class="section-content">{{content}}</text>
   </view>
 </view>
