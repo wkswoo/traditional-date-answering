@@ -21,6 +21,16 @@
   </view>
 
   <view class="section">
-    <text class="section-content">{{content}}</text>
+    <view class="content-wrapper">
+      <text class="section-content">{{displayContent}}<text class="cursor" wx:if="{{isPlaying}}">▌</text></text>
+    </view>
+    <view class="actions" wx:if="{{!isPlaying && displayContent}}">
+      <view class="action-btn" bindtap="copy">
+        <text>复制文案</text>
+      </view>
+      <view class="action-btn" bindtap="replay">
+        <text>重新品读</text>
+      </view>
+    </view>
   </view>
 </view>
